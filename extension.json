@@ -1,0 +1,16 @@
+{
+    "builtin": "False",
+    "type": "extension",
+    "rocket_mode_compatible": "True",
+    "name": "RevitAPI",
+    "description": "IronPython Scripts for Autodesk Revit.",
+    "author": "Nizar Gharib",
+    "author_profile": "https://BIG.dk",
+    "url": "https://github.com/kbruxvoort/SSG.extension.git",
+    "website": "https://github.com/kbruxvoort/SSG.extension",
+    "image": "",
+    "templates": {
+        "author": "Nizar Gharib"
+    },
+    "dependencies": []
+}
