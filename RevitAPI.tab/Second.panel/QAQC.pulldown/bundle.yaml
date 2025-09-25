@@ -5,3 +5,6 @@ layout:
   - ByLinkedView
   - FloorMutualEdges
   - LineContinuity
+  - FloorBoundaries
+  - FloorToToposolid
+  - SplitRegionWithLine
