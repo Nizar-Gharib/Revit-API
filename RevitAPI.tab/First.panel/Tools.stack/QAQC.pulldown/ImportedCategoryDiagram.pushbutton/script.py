@@ -51,7 +51,7 @@ from Autodesk.Revit.UI import *
 from Autodesk.Revit.DB import *
 
 # Path to the CSV file
-csv_path = r"C:\Users\nizarg\OneDrive - Bjarke Ingels Group\Desktop\VPHIL\02 WIP\05 Scripts\BPD100_VLF_FACADE_LAYER TABLE.csv"
+csv_path = r"C:\Users\nizarg\OneDrive - Bjarke Ingels Group\Desktop\VPHIL\02 WIP\05 Scripts\BPD100_VLF_DIAGRAM_LAYER TABLE.csv"
 
 # Mapping of built-in pattern names to their ElementIds
 BUILTIN_LINE_PATTERNS = {
@@ -98,15 +98,7 @@ documentCategories = doc.Settings.Categories
 
 def override_dwg_layers(Layer_name, R, G, B, LW, LP_id):
     for cat in documentCategories:
-        if cat.Name in ("BPD 100_ENV_ST.dwg",
-                         "BPD 100_ENV_Roof plans_Roof A.dwg",
-                           "BPD 100_ENV_Roof plans_Roof B.dwg",
-                             "BPD 100_ENV_Roof plans_Roof C.dwg",
-                               "BPD 100_ENV_Roof plans_Roof D.dwg",
-                                 "BPD 100_ENV_Roof plans_Roof E.dwg",
-                                   "BPD 100_ENV_NP1.dwg", "BPD 100_ENV_NP2.dwg", "BPD 100_ENV_NP3.dwg",
-                                     "BPD 100_ENV_NP4.dwg", "BPD 100_ENV_NP5.dwg", "BPD 100_ENV_NP6.dwg",
-                                       "BPD 100_ENV_NP7.dwg"):
+        if cat.Name in ("BPD 100_Diagram Colors.dwg"):
             print(cat.Name)
             getsubcategories = cat.SubCategories
 

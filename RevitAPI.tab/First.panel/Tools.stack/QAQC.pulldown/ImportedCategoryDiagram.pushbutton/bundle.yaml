@@ -1,0 +1,6 @@
+title:
+  en_us: Imported Category (Diagram)
+tooltip:
+  en_us: Overrides the object style of dwg files as per an external csv file. Please note that the location and the dwg names are currently hard-coded; you will need to modify them inside the script. 
+author: 'Nizar Gharib'
+contact: 'nizarg@big.dk'

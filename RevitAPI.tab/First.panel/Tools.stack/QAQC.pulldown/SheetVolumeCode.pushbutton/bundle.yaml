@@ -1,0 +1,6 @@
+title:
+  en_us: Sheet Volume Code
+tooltip:
+  en_us: Takes the last two letters from the view name and put it in the BIG_Sheet Volume Code parameter of the sheet. 
+author: 'Nizar Gharib'
+contact: 'nizarg@big.dk'
