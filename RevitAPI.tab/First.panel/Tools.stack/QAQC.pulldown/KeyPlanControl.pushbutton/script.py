@@ -25,6 +25,8 @@ Author: Erik Frits"""
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI.Selection import*
 
+# Custom
+from Snippets._selection import get_selected_sheets 
 # pyRevit
 from pyrevit import forms
 
@@ -44,29 +46,30 @@ app   = __revit__.Application
 #==================================================
 
 
-def get_selected_sheets(given_uidoc = uidoc, exit_if_none = False, title='__title__', label='Select Sheets',
-                        btn_name = 'Select Sheets',  version = 'Version: _'):
-    """Function to get selected views. return list of selected views.
-    LastUpdates:
-    [15.02.2022] - If no sheets selected -> Select from DialogBox
-    [01.06.2022] - Bug Fixed + added more controls(label, btn_name)"""
-    #>>>>>>>>>> GET SELECTED ELEMENTS
-    doc         = given_uidoc.Document
-    UI_selected = given_uidoc.Selection.GetElementIds()
+# def get_selected_sheets(given_uidoc = uidoc, exit_if_none = False, title='__title__', label='Select Sheets',
+#                         btn_name = 'Select Sheets',  version = 'Version: _'):
+#     """Function to get selected views. return list of selected views.
+#     LastUpdates:
+#     [15.02.2022] - If no sheets selected -> Select from DialogBox
+#     [01.06.2022] - Bug Fixed + added more controls(label, btn_name)"""
+#     #>>>>>>>>>> GET SELECTED ELEMENTS
+#     doc         = given_uidoc.Document
+#     UI_selected = given_uidoc.Selection.GetElementIds()
 
-    #>>>>>>>>>> GET SHEETS FROM SELECTION
-    selected_sheets = [doc.GetElement(sheet_id) for sheet_id in UI_selected if type(doc.GetElement(sheet_id)) == ViewSheet]
+#     #>>>>>>>>>> GET SHEETS FROM SELECTION
+#     selected_sheets = [doc.GetElement(sheet_id) for sheet_id in UI_selected if type(doc.GetElement(sheet_id)) == ViewSheet]
 
-    #>>>>>>>>>> IF NONE SELECTED - OPEN A DIALOGBOX TO CHOOSE FROM.
-    if not selected_sheets:
-        all_sheets      = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Sheets).WhereElementIsNotElementType().ToElements()
-        dict_sheets     = {'{} - {}'.format(sheet.SheetNumber, sheet.Name): sheet for sheet in all_sheets}
-        selected_sheets = select_from_dict(dict_sheets, title=title, label=label, button_name=btn_name, version=version)
+#     #>>>>>>>>>> IF NONE SELECTED - OPEN A DIALOGBOX TO CHOOSE FROM.
+#     if not selected_sheets:
+#         all_sheets      = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Sheets).WhereElementIsNotElementType().ToElements()
+#         dict_sheets     = {'{} - {}'.format(sheet.SheetNumber, sheet.Name): sheet for sheet in all_sheets}
+#         selected_sheets = select_from_dict(dict_sheets, title=title, label=label, button_name=btn_name, version=version)
 
-    #>>>>>>>>>> EXIT IF STILL NONE SELECTED
-    if not selected_sheets and exit_if_none:
-        forms.alert("No sheets were selected. Please try again.", exitscript=True)
-    return selected_sheets
+#     #>>>>>>>>>> EXIT IF STILL NONE SELECTED
+#     if not selected_sheets and exit_if_none:
+#         forms.alert("No sheets were selected. Please try again.", exitscript=True)
+#     return selected_sheets
+
 
 
 selected_elements = get_selected_sheets(uidoc, exit_if_none=True, title=__title__)
@@ -169,7 +172,7 @@ try:
             view_title = doc.GetElement(view).Title
             volume_code = view_title[-2:]
         for tb in title_blocks:
-            print '    - Current keyplan control is: {}'.format(tb.LookupParameter('Keyplan Control').AsInteger())
+            print ('    - Current keyplan control is: {}'.format(tb.LookupParameter('Keyplan Control').AsInteger()))
             tb.LookupParameter('Keyplan Control').Set(int(volume_code_mapping_dictionary.get(volume_code, 0)))
             # print the current value of the keyplan control parameter
             

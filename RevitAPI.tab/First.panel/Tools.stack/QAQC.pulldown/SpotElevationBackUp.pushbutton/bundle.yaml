@@ -1,0 +1,6 @@
+title:
+  en_us: Spot Elevation Backup
+tooltip:
+  en_us: Creates spot elevations from detail items and host them on a selected linked topography. 
+author: 'Nizar Gharib'
+contact: 'nizarg@big.dk'

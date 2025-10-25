@@ -1,6 +1,6 @@
 title:
   en_us: Line Continuity
 tooltip:
-  en_us: Overrides the segments of a continuous line
-author: 'Nizar Gharib'
+  en_us: Checks for colinear lines and makes them only one line; and overrides the added line
+  author: 'Nizar Gharib'
 contact: 'nizarg@big.dk'

@@ -8,3 +8,4 @@ layout:
   - FloorBoundaries
   - FloorToToposolid
   - SplitRegionWithLine
+  - RoomSeparationContinuity

@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
-__title__ = "Rename Views"
+__title__ = "Imported Category"
 __doc__ = """Version = 1.0
-Date    = 31.07.2024
+Date    = 20.09.2025
 _____________________________________________________________________
 Description:
-Rename Views in Revit by using Find/Replace Logic.
+Override the graphics of the listed DWGs as per an external csv file
 _____________________________________________________________________
 How-to:
--> Click on the button
--> Select Views
--> Define Renaming Rules
--> Rename Views
+-> Ensure the csv file path is listed below
+-> Ensure the dwg files are listed below (with .dwg at the end of their names)
+-> Just run the script within pyRevit environment and it will do the job
 _____________________________________________________________________
 Last update:
-- [31.07.2024] - 1.0 RELEASE
+- [21.10.2025] - 1.0 RELEASE
 _____________________________________________________________________
-Author: Erik Frits"""
+Author: Nizar Gharib"""
 
 # ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
 # ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
@@ -32,6 +31,8 @@ from Autodesk.Revit.DB import APIObject
 from Autodesk.Revit.UI.Selection import ObjectType
 from Autodesk.Revit.UI.Selection import PickBoxStyle
 from Autodesk.Revit.DB import FilteredElementCollector
+
+
 
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
