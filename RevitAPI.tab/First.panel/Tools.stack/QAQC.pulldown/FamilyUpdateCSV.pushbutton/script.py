@@ -52,7 +52,19 @@ csv_path = forms.pick_file(file_ext='csv', multi_file=False)
 if not csv_path:
     logger.error('CSV file not found {}'.format(csv_path))
 
-floor_data = []
+
+
+
+
+# === START TRANSACTION ===
+t = Transaction(doc, "Update Floor Type Parameters from CSV")
+t.Start()
+
+# === COLLECT ALL FLOOR TYPES ===
+collector = FilteredElementCollector(doc)\
+    .OfClass(FloorType)\
+    .ToElements()
+
 with open(csv_path, 'r') as f:
     # Change delimiter to ',' if comma-separated
     reader = csv.DictReader(f)
@@ -78,28 +90,16 @@ with open(csv_path, 'r') as f:
         print(type_comments)
         print(description)
 
+        for ft in collector:
+
+            type_name = Element.Name.__get__(ft)
+
+            if type_name == old_name:
+                type_name.Set(new_name)
+            print (type_name)
+
         # You can now map this info to Revit elements or types here
-print ('-'*100)
-print ('csv data for 2 columns are: {}'.format(floor_data))
-# === COLLECT ALL FLOOR TYPES ===
-collector = FilteredElementCollector(doc)\
-    .OfClass(FloorType)\
-    .ToElements()
-
-
-# === START TRANSACTION ===
-t = Transaction(doc, "Update Floor Type Parameters from CSV")
-t.Start()
-
-for ft in collector:
-
-    type_name = Element.Name.__get__(ft)
-
-    if type_name == old_name:
-        type_name.Set(new_name)
-    print (type_name.AsString())
-
-
+        print ('-'*100)
 
 t.Commit()
 
