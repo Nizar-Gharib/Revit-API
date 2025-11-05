@@ -26,8 +26,8 @@ from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI.Selection import ObjectType
 # pyRevit
 from pyrevit import forms
-
-
+from Autodesk.Revit.DB import FilteredElementCollector, BuiltInCategory
+from pyrevit import DB
 # ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
 # ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
 #  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
@@ -43,37 +43,39 @@ app   = __revit__.Application
 #==================================================
 
 #1️⃣ Select Views
-ref_picked_obj = uidoc.Selection.PickObject(ObjectType.Element, "Select a view to rename")
-elem = doc.GetElement(ref_picked_obj)
-elem_type = doc.GetElement(elem.GetTypeId())
 
-elem_parameters = elem.Parameters
-type_parameters = elem_type.Parameters
+#collect all floor types in the document
+floor_types  = FilteredElementCollector(doc).OfCategory(BuiltInCategory.OST_Floors).WhereElementIsElementType().ToElements()
+floor_types_params = [ft.Parameters for ft in floor_types]
 
-param_approved_by = elem.get_Parameter(BuiltInParameter.SHEET_APPROVED_BY).AsString()
-param_Height = elem_type.LookupParameter("Height").AsDouble()
-# param_elem_Height = elem.LookupParameter("Height").AsDouble()
-param_Height_m = UnitUtils.ConvertFromInternalUnits(param_Height, UnitTypeId.Meters)
+#print names of all floor types
+for f in floor_types:
+    name = DB.Element.Name.__get__(f)
+    type_params = f.Parameters
+    print(name)
+    for p in type_params:
+        print(p.Definition.Name)
+    print('---'*50)
 
-print(param_approved_by)
-print(param_Height_m)
-# print(param_elem_Height)
+# Write these to a csv file
+import csv
+import os
+output_file = r"C:\Users\nizarg\OneDrive - Bjarke Ingels Group\Desktop\NG Personal Notes\RevitAPI\Testing CSV\floor_types_params.csv"
 
-
+with open(output_file, mode='w') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow(["Floor Type", "Parameter"])
+    for f in floor_types:
+        name = DB.Element.Name.__get__(f)
+        type_params = f.Parameters
+        for p in type_params:
+            writer.writerow([name, p.Definition.Name])
+    print('CSV file created at: {}'.format(output_file))
 t = Transaction(doc, "set parameters")
 try:
     t.Start()
 
-    new_height = UnitUtils.ConvertToInternalUnits(3, UnitTypeId.Meters)
-    new_height_m = UnitUtils.ConvertFromInternalUnits(new_height, UnitTypeId.Meters)
-    elem_type.LookupParameter("Height").Set(new_height)
-
-
-    new_approved_by = "John Doe"
-    elem.get_Parameter(BuiltInParameter.SHEET_APPROVED_BY).Set(new_approved_by)
-
-    print('Changed height to: {}'.format(new_height_m))
-    print('Changed approved by to: {}'.format(new_approved_by))
+    
 except Exception as e:
     print('Error: {}'.format(e))
 

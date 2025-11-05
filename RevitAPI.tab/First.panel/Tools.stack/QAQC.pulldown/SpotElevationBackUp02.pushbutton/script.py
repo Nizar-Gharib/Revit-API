@@ -70,8 +70,19 @@ def get_elements_by_type_name(type_name):
     return FilteredElementCollector(doc).WherePasses(filter_type_name)\
                               .WhereElementIsNotElementType().ToElements()
                                 
+current_view = doc.ActiveView
 # Get Elements                           
 elements = get_elements_by_type_name('Spot Elevation Backup')
+
+loc = []
+for el in elements:
+    loc_point = el.Location
+    if isinstance(loc_point, LocationPoint):
+        point = loc_point.Point
+        loc.append(point)
+        print("Detail Item: {} at Location: X={}, Y={}, Z={}".format(el.Name, point.X, point.Y, point.Z))
+    else:
+        print("Element {} does not have a valid location point.".format(el.Name))
 
 # Get the user to select linked topography elements
 selection = uidoc.Selection
@@ -87,94 +98,68 @@ surface_topo = link_doc.GetElement(picked_ref.LinkedElementId)
 # The `picked_ref` is the necessary reference for NewSpotElevation.
 topo_ref = picked_ref 
 
-# Check if the element is indeed a TopographySurface or similar
-if not isinstance(surface_topo, Surface):
-    print("❌ Selected element is not a TopographySurface. Cannot use Get=ElevationWith*/GetXYZ().")
-    exit()
-
 print("Linked Topography Element Name (Reference): {}".format(picked_ref))
 print("Linked Topography Surface Name: {}".format(surface_topo.Name))
 print("Linked model: {}".format(link_model.Name))
+print('the detail items are: {}'.format([e.Name for e in elements]))
+
+#get view 3D by name
+view_3d = FilteredElementCollector(doc).OfClass(View3D).WhereElementIsNotElementType().ToElements()
+# get view 3D which name is {3D - nizarg}
+print([v.Name for v in view_3d])
+target_view = next((v for v in view_3d if v.Name == '{3D - nizarg}'), None)
+nizar_view = [n for n in view_3d if n.Name == '{3D - nizarg}']
+print('nizar_view: {}'.format([n.Name for n in nizar_view]))
+link_instance = None
+linked_doc = None
+
+if isinstance(link_model, RevitLinkInstance):
+    link_instance = link_model
+    linked_doc = link_instance.GetLinkDocument()
+    topo_filter = ElementCategoryFilter(BuiltInCategory.OST_Topography)
+    intersector = ReferenceIntersector(topo_filter, FindReferenceTarget.Face, nizar_view[0])
+    print("🌍 Using linked topography: {}".format(link_instance.Name))
+else:
+    topo_filter = ElementCategoryFilter(BuiltInCategory.OST_Topography)
+    intersector = ReferenceIntersector(topo_filter, FindReferenceTarget.Face, nizar_view[0])
+    print("🌄 Using local topography: {}".format(link_model.Name))
+
+print('intersector: {}'.format(intersector))
+# shoot ray
+direction = XYZ(0, 0, -10000000000)
+for point in loc:
+    base_point = XYZ(point.X, point.Y, point.Z) 
+    ref_result = intersector.FindNearest(base_point, direction)
+
+    if ref_result:
+        hit_ref = ref_result.GetReference()
+        hit_point = ref_result.GetReference().GlobalPoint
+        print("✅ Projected point found at Z = {:.2f}".format(hit_point.Z))
+    # else:
+    #     raise Exception("❌ No intersection found with the topography below the detail item.")
+print('ref_result: {}'.format(ref_result))
 
 # current view
-current_view = doc.ActiveView
 
-#create transaction
-t = Transaction(doc, "Create Spot Elevations")
+t = Transaction(doc, "Project Point onto Topography")
+t.Start()
+
 try:
-    t.Start()
+    # # Create a model reference point at the intersection
+    # new_point = doc.FamilyCreate.NewReferencePoint(hit_point)
+    # print("📌 Created ReferencePoint ID: {}".format(new_point.Id))
 
-    # Get the transform from the Link Instance
-    link_transform = link_model.GetLinkDocument().ActiveProjectLocation.GetProjectPosition(XYZ.Zero).GlobalPoint
-    # In most cases, the link's transform is just the Identity matrix if no positioning is applied,
-    # but the correct way to transform the point from host to link coordinate system is vital.
-    link_instance_transform = link_model.GetTransform()
-    
-    # get the center points of the elements
-    for el in elements:
-        loc = el.Location
-        if isinstance(loc, LocationPoint):
-            point_base = loc.Point # Point in Host coordinates
-            print("Element ID: {}, Location: ({}, {}, {})".format(el.Id, point_base.X, point_base.Y, point_base.Z))
-            
-            try:
-                # 1. Transform the host point to the linked document's coordinates
-                # This is crucial for using GetElevationWithCurves or similar methods on the linked TopographySurface.
-                point_in_link = link_instance_transform.Inverse.OfPoint(point_base)
+    # Optionally, create a spot elevation
+    # current_view = doc.ActiveView
+# try:
+    spot = doc.Create.NewSpotElevation(current_view, hit_ref, base_point, base_point, base_point, hit_point, False)
+    print("📍 Created Spot Elevation ID: {}".format(spot.Id))
+# except Exception as se:
+#     print("⚠️ Could not create spot elevation: {}".format(se))
 
-                # 2. Get the elevation from the TopographySurface in the link document
-                # This is the correct way to "project" a point onto a TopographySurface.
-                # NOTE: This method requires the point to be in the Topo's own coordinate system (i.e., the link's).
-                
-                # Check for newer method (Revit 2021+)
-                if rvt_year >= 2021:
-                    elevation_in_link = surface_topo.GetElevationWithCurves(point_in_link)
-                else:
-                    elevation_in_link = surface_topo.GetElevation(point_in_link)
-
-                
-                # 3. Create the projected point (in Host coordinates)
-                # Take the original X, Y (host coords) and the new Z (transformed back from link coords)
-                
-                # The elevation_in_link is an absolute Z value in the link's coordinates.
-                # To get the final point in the HOST document:
-                projected_point_link = XYZ(point_in_link.X, point_in_link.Y, elevation_in_link)
-                projected_point_host = link_instance_transform.OfPoint(projected_point_link)
-
-                # 4. Define points for NewSpotElevation (using host coordinates)
-                
-                # pOrigin: The point on the element (the projected point)
-                origin_pt = projected_point_host
-                
-                # pElbow and pLeader define the placement (offset from the backup element location)
-                offset_x = 5.0 
-                elbow_pt = XYZ(point_base.X + offset_x, point_base.Y, projected_point_host.Z)
-                leader_end_pt = XYZ(point_base.X + offset_x * 2, point_base.Y, projected_point_host.Z)
-                
-                # pPlane: Annotation placement point (using the backup element's location)
-                plane_pt = point_base 
-                
-                # 5. Create the Spot Elevation
-                spot_elev = doc.Create.NewSpotElevation(
-                    current_view, 
-                    topo_ref, # Reference to the linked element
-                    origin_pt, 
-                    elbow_pt, 
-                    leader_end_pt, 
-                    plane_pt, 
-                    False 
-                )
-                
-                print("Created Spot Elevation ID: {}".format(spot_elev.Id))
-                
-            except Exception as inner_e:
-                print("❌ Failed for element {}: {}".format(el.Id, inner_e))
-    
     t.Commit()
-    print("Script completed successfully.")
-    
+    print("🎯 Projection completed successfully.")
+
 except Exception as e:
-    # Always roll back on error
-    if t.GetStatus() == TransactionStatus.Started:
-        t.RollBack()
-    print("An error occurred: {}".format(e))
+    print("❌ Error: {}".format(e))
+    t.RollBack()

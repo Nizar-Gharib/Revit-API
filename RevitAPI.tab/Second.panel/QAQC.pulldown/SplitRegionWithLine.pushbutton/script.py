@@ -1,144 +1,147 @@
 # -*- coding: utf-8 -*-
 __title__   = "Split Floors with Line"
-__doc__ = """Version = 1.0
-Date    = 25.08.2025
+__doc__ = """Version = 1.1
+Date    = 30.10.2025
 _____________________________________________________________________
-Description:
-Split Selected Floors with a Detail Line.
-
-💡 The selected Detail Line defines an infinite vertical cutting plane.
-The script cuts each floor's solid and creates two new floors from the
-resulting top faces, preserving FloorType and Level.
-
-_____________________________________________________________________
-How-to:
-
--> Click on the button
--> Select Floors
--> Select Detail Line
-_____________________________________________________________________
-To-Do?:
-- Copy instance parameters from original floor to new floors
-- Handle sloped floors with non-planar top faces
-_____________________________________________________________________
-Author: (based on Erik Frits' original FR splitter idea)
+Split selected Floors with a Detail Line (infinite vertical plane).
+Creates two new floors (same type & level) from the bottom faces.
 """
 
-# ╦╔╦╗╔═╗╔═╗╦═╗╔╦╗╔═╗
-# ║║║║╠═╝║ ║╠╦╝ ║ ╚═╗
-# ╩╩ ╩╩  ╚═╝╩╚═ ╩ ╚═╝ IMPORTS
-#==================================================
 from Autodesk.Revit.DB import *
 from Autodesk.Revit.UI.Selection import *
 from pyrevit import forms
 
-# ╦  ╦╔═╗╦═╗╦╔═╗╔╗ ╦  ╔═╗╔═╗
-# ╚╗╔╝╠═╣╠╦╝║╠═╣╠╩╗║  ║╣ ╚═╗
-#  ╚╝ ╩ ╩╩╚═╩╩ ╩╚═╝╩═╝╚═╝╚═╝ VARIABLES
-#==================================================
 uidoc = __revit__.ActiveUIDocument
-doc   = __revit__.ActiveUIDocument.Document  # type: Document
-app   = __revit__.Application
-selection = uidoc.Selection                  # type: Selection
+doc   = uidoc.Document
+sel   = uidoc.Selection
 
-# ╔═╗╦ ╦╔═╗╔╗╔╔╦╗╦╔═╗╔╗╔╔═╗
-# ╠╣ ║ ║║  ║║║ ║ ║║ ║║║║╚═╗
-# ╚  ╚═╝╚═╝╝╚╝ ╩ ╩╚═╝╝╚╝╚═╝ HELPERS
-#==================================================
-# -*- coding: utf-8 -*-
+# ---------------------------- Helpers ----------------------------
+def create_vertical_plane_from_detail_line(dline):
+    crv = dline.GeometryCurve
+    p0  = crv.GetEndPoint(0)
+    p1  = crv.GetEndPoint(1)
+    mid = (p0 + p1) / 2.0
+    p2  = XYZ(mid.X, mid.Y, mid.Z + 10.0)  # force vertical plane
+    return Plane.CreateByThreePoints(p0, p1, p2)
 
+def mirror_plane(plane):
+    n = plane.Normal
+    return Plane.CreateByNormalAndOrigin(XYZ(-n.X, -n.Y, -n.Z), plane.Origin)
 
+def get_main_solid(geom_elem):
+    maxvol, best = 0.0, None
+    for g in geom_elem:
+        if isinstance(g, GeometryInstance):
+            gi = g.GetInstanceGeometry()
+            for sg in gi:
+                if isinstance(sg, Solid) and sg.Volume > maxvol:
+                    maxvol, best = sg.Volume, sg
+        elif isinstance(g, Solid) and g.Volume > maxvol:
+            maxvol, best = g.Volume, g
+    return best
 
+def find_planar_face_by_normal(solid, target):
+    if not solid: return None
+    for face in solid.Faces:
+        pf = face if isinstance(face, PlanarFace) else None
+        if pf and pf.FaceNormal.IsAlmostEqualTo(target):
+            return pf
+    return None
 
-# Get the current document
+# ------------------------ Selection filters -----------------------
+class FloorFilter(ISelectionFilter):
+    def AllowElement(self, e): return isinstance(e, Floor)
+class DLineFilter(ISelectionFilter):
+    def AllowElement(self, e): return isinstance(e, DetailLine)
 
-
-# Function to split the floor
-def split_floor_with_line(floor, detail_line):
-    # Get the boundary/profile of the floor
-    floor_profile = []
-    if hasattr(floor, 'Sketch') and floor.Sketch:
-        # Use the sketch profile if available
-        for curve_array in floor.Sketch.Profile:
-            for curve in curve_array:
-                floor_profile.append(curve)
-    else:
-        # Fallback: extract from geometry (top face)
-        options = Options()
-        geometry = floor.get_Geometry(options)
-        for geomObj in geometry:
-            if isinstance(geomObj, Solid):
-                top_face = None
-                max_z = None
-                for face in geomObj.Faces:
-                    bbox = face.GetBoundingBox()
-                    if bbox:
-                        z = bbox.Max.Z
-                        if max_z is None or z > max_z:
-                            max_z = z
-                            top_face = face
-                if top_face:
-                    for curve_loop in top_face.GetEdgesAsCurveLoops():
-                        for curve in curve_loop:
-                            floor_profile.append(curve)
-                break
-    # Get the geometry of the detail line
-    line_curve = detail_line.GeometryCurve
-
-    # Find the intersection points between the floor profile and the detail line
-    intersection_points = []
-    for curve in floor_profile:
-        result = curve.Intersect(line_curve)
-        if result == SetComparisonResult.Overlap:
-            intersection_points.append(result.GetCurveSegment(0).GetEndPoint(0))
-
-    if len(intersection_points) != 2:
-        forms.alert("The detail line must intersect the floor at exactly two points.", exitscript=True)
-
-    # Create two new profiles by splitting the original profile
-    new_profiles = []
-    for i in range(2):
-        new_profile = []
-        for curve in floor_profile:
-            if curve.GetEndPoint(0) in intersection_points or curve.GetEndPoint(1) in intersection_points:
-                new_profile.append(curve)
-        new_profiles.append(new_profile)
-
-    # Create new floors with the original type
-    new_floors = []
-    for profile in new_profiles:
-        new_floor = doc.Create.NewFloor(profile, floor.FloorType, floor.LevelId, floor.Structural)
-        new_floors.append(new_floor)
-
-    # Delete the original floor
-    doc.Delete(floor.Id)
-
-    return new_floors
-
-floor = None
-detail_line = None
-
-# Prompt the user to select a floor
-floor_ref = selection.PickObject(ObjectType.Element, "Select a floor")
-floor = doc.GetElement(floor_ref)
-if not isinstance(floor, Floor):
-    forms.alert("You must select a floor.", exitscript=True)
-
-# Prompt the user to select a detail line
-detail_line_ref = selection.PickObject(ObjectType.Element, "Select a detail line")
-detail_line = doc.GetElement(detail_line_ref)
-if not isinstance(detail_line, DetailLine):
-    forms.alert("You must select a detail line.", exitscript=True)
-
-
-# Start a transaction and ensure it is always closed
-t = Transaction(doc, "Split Floor with Detail Line")
+# ---------------------------- Select ------------------------------
+floors = []
 try:
-    t.Start()
-    split_floor_with_line(floor, detail_line)
+    refs = sel.PickObjects(ObjectType.Element, FloorFilter(), "Select one or more floors to split")
+    floors = [doc.GetElement(r) for r in refs]
+except:
+    forms.alert("No floors selected. Try again.", exitscript=True)
+
+try:
+    r = sel.PickObject(ObjectType.Element, DLineFilter(), "Select the cutting detail line")
+    dline = doc.GetElement(r)
+except:
+    forms.alert("No detail line selected. Try again.", exitscript=True)
+
+# ------------------------ Build cutting planes ---------------------
+cut_plane      = create_vertical_plane_from_detail_line(dline)
+cut_plane_mirr = mirror_plane(cut_plane)
+
+# ------------------------ Main transaction ------------------------
+skipped = []
+t = Transaction(doc, "Split Floors with Line")
+t.Start()
+try:
+    for fl in floors:
+        try:
+            # 1) Get a usable solid
+            opt = Options()
+            opt.DetailLevel = ViewDetailLevel.Fine
+            opt.IncludeNonVisibleObjects = True
+            geom = fl.get_Geometry(opt)
+            solid = get_main_solid(geom)
+            if not solid:
+                skipped.append((fl, "No solid geometry."))
+                continue
+
+            # 2) Cut with half-spaces
+            half1 = BooleanOperationsUtils.CutWithHalfSpace(solid, cut_plane)
+            half2 = BooleanOperationsUtils.CutWithHalfSpace(solid, cut_plane_mirr)
+
+            # 3) Use BOTTOM faces (normal ≈ -Z) for proper sketch elevation
+            bottom1 = find_planar_face_by_normal(half1, XYZ.BasisZ.Negate())
+            bottom2 = find_planar_face_by_normal(half2, XYZ.BasisZ.Negate())
+            if not (bottom1 and bottom2):
+                skipped.append((fl, "Could not find planar bottom faces (sloped/shape-edited floor?)."))
+                continue
+
+            loops1 = list(bottom1.GetEdgesAsCurveLoops())
+            loops2 = list(bottom2.GetEdgesAsCurveLoops())
+            if not loops1 or not loops2:
+                skipped.append((fl, "No CurveLoops from bottom faces."))
+                continue
+
+            # 4) Recreate floors (same type & level)
+            ftype_id = fl.FloorType.Id
+            lvl_id   = fl.LevelId
+
+            new1 = Floor.Create(doc, loops1, ftype_id, lvl_id)
+            new2 = Floor.Create(doc, loops2, ftype_id, lvl_id)
+
+            # Optional: copy a few simple instance params (safe whitelist)
+            # for pname in ["Comments", "Mark"]:
+            #     p_src = fl.LookupParameter(pname)
+            #     if p_src and not p_src.IsReadOnly:
+            #         val = p_src.AsString()
+            #         for nf in (new1, new2):
+                #             p_dst = nf.LookupParameter(pname)
+                #             if p_dst and not p_dst.IsReadOnly and val is not None:
+                #                 p_dst.Set(val)
+
+            # 5) Delete original
+            if new1 and new2:
+                doc.Delete(fl.Id)
+
+        except Exception as ex:
+            skipped.append((fl, str(ex)))
+            continue
     t.Commit()
-except Exception as e:
-    if t.HasStarted() and not t.HasEnded():
-        t.RollBack()
+except:
+    t.RollBack()
     raise
 
+# ------------------------ Feedback --------------------------------
+if skipped:
+    lines = ["Some floors were skipped:"]
+    for fl, why in skipped:
+        try:
+            name = fl.Name
+        except:
+            name = "Floor id {}".format(fl.Id.IntegerValue)
+        lines.append("- {}: {}".format(name, why))
+    forms.alert("\n".join(lines))

@@ -124,7 +124,7 @@ try:
     # create spot elevations at those points
             try:
                 projected_point = topo_face.Project(point).XYZPoint
-                spot_elev = doc.Create.NewSpotElevation(current_view, ref, point, point, point, projected_point, False)
+                spot_elev = doc.Create.NewSpotElevation(current_view, ref, projected_point, point, point, projected_point, False)
                 print("Created Spot Elevation ID: {}".format(spot_elev.Id))
             except Exception as inner_e:
                 print("❌ Failed for element {}: {}".format(el.Id, inner_e))
